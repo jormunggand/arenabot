@@ -2,7 +2,9 @@
 # by Alberto Tonda, 2018 <alberto.tonda@gmail.com>
 
 import sys
+import random
 import numpy as np
+import inspyred
 
 '''This function accepts in input a list of strings, and tries to parse them to update the position of a robot. Then returns distance from objective.'''
 def fitnessRobot(listOfCommands, visualize=False) :
@@ -46,12 +48,14 @@ def fitnessRobot(listOfCommands, visualize=False) :
 	angle = 0
 	for command in listOfCommands:
 		commandType, n = command.split(' ')
+		n = int(n)
 		if commandType == "rotate":
-			angle += n
+			angle += n*np.pi/180
 		elif commandType == "move":
-			robotX += int(np.sin(angle))
-			robotY += int(np.cos(angle))
+			robotX += int(n*np.sin(angle))
+			robotY += int(n*np.cos(angle))
 			positions.append( [robotX, robotY] )
+	#print(f"New position {robotX}, {robotY}")
 
 
 	# TODO measure distance from objective
@@ -83,12 +87,97 @@ def fitnessRobot(listOfCommands, visualize=False) :
 
 	return distanceFromObjective
 
+
+
+def generator_arenabot(random, args):
+	commandList = []
+	for i in range(3):
+		n = random.randint(0, 360)
+		commandList.append(f"rotate {n}")
+		n = random.randint(0, 100)
+		commandList.append(f"move {n}")
+	return commandList
+
+def evaluator_arenabot(candidates, args):
+	return [fitnessRobot(c, False) for c in candidates]
+
+
+
+def crossover_arenabot(random, candidates, args):
+	crossover_rate = args['crossover_rate']
+
+	# Crossover and mutation mechanisms
+	children = []
+	for c in range(len(candidates)):
+		# Do the crossover by selecting two different candidates
+		parent1, parent2 = random.choices(candidates, k=2)
+		# parent1 will be the one with minimum length
+		if len(parent1) > len(parent2):
+			parent1, parent2 = parent2,parent1
+
+		child = []
+		for i in range(len(parent1)):
+			child.append(random.choice([parent1[i], parent2[i]]))
+		child += parent2[len(parent1):]
+	children.append(child)
+
+
+def mutator_arenabot(random, candidates, args):
+	mutation_rate = args['mutation_rate']
+
+	for candidate in candidates:
+		if (random.random() < mutation_rate):
+			randomIndex = random.randint(0, len(candidate)-1)
+			name, param = candidate[randomIndex].split(' ')
+			param = int(param)
+			# 50% chance of changing command name
+			if (random.randint(0, 1) == 1):
+				if name == "move":
+					name = "rotate"
+					param = random.randint(0, 360)
+				else:
+					name = "move"
+					param = random.randint(0, 100)
+			
+			# Little modification of numeric argument 
+			if name == "move":
+				param *= random.gauss(1, 0.1)
+				param = int(max(min(param, 100), 0))
+			else:
+				param *= random.gauss(1, 0.8) 
+				param  = int(param) % 360
+			
+			candidate[randomIndex] = f"{name} {param}"
+	return candidates
+
+
+
+
 ################# MAIN
 def main() :
+	random_gen = random.Random()
+	random_gen.seed(42)
+
+	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
+	ev_algo.selector = inspyred.ec.selectors.tournament_selection
+	ev_algo.variator = [mutator_arenabot]
+	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
+	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
+	ev_algo.observer = inspyred.ec.observers.best_observer
 	
-	# first, let's see what happens with an empty list of commands
-	listOfCommands = []
-	fitnessRobot(listOfCommands, visualize=True)
+	final_pop = ev_algo.evolve(
+		generator=generator_arenabot,
+		evaluator=evaluator_arenabot,
+		pop_size=50,
+		num_selected=100,
+		maximize=False,
+		max_evaluations=2000,
+		mutation_rate=0.2,
+		crossover_rate=0.8
+	)
+
+	best = final_pop[0]
+	print("Best fitness {}".format(best))
 	
 	return 0
 
