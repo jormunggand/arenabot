@@ -17,7 +17,6 @@ def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bo
 	yMax = wall["y"] + wall["height"]
 	
 	# check if the line intersects with the rectangle
-	# https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
 	def ccw(A,B,C):
 		return (C[1]-A[1])*(B[0]-A[0]) > (B[1]-A[1])*(C[0]-A[0])
 	
@@ -27,31 +26,42 @@ def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bo
 	return intersect( (x1,y1), (x2,y2), (xMin,yMin), (xMax,yMin) ) or intersect( (x1,y1), (x2,y2), (xMax,yMin), (xMax,yMax) ) or intersect( (x1,y1), (x2,y2), (xMax,yMax), (xMin,yMax) ) or intersect( (x1,y1), (x2,y2), (xMin,yMax), (xMin,yMin) )
 
 
+
+# the Arena is a 100 x 100 pixel space
+arenaLength = 100
+arenaWidth = 100
+	
+# let's also put a couple of walls in the arena; walls are described by a set of 4 (x,y) corners (bottom-left, top-left, top-right, bottom-right)
+walls = []
+
+wall1 = dict()
+wall1["x"] = 30
+wall1["y"] = 0
+wall1["width"] = 10
+wall1["height"] = 80
+
+wall2 = dict()
+wall2["x"] = 70
+wall2["y"] = 20
+wall2["width"] = 10
+wall2["height"] = 80
+
+walls.append(wall1)
+walls.append(wall2)
+
+
+# returns the sum of all the N in "move N" of commandList
+# sum_of_distances(["move 10", "move 15", "rotate 120"]) returns 25
+def sum_of_distances(commandList):
+	total=0
+	for command in commandList:
+		name, n = command.split(' ')
+		if name == "move":
+			total += int(n)
+	return total
+
 '''This function accepts in input a list of strings, and tries to parse them to update the position of a robot. Then returns distance from objective.'''
 def fitnessRobot(listOfCommands, visualize=False) :
-
-	# the Arena is a 100 x 100 pixel space
-	arenaLength = 100
-	arenaWidth = 100
-	
-	# let's also put a couple of walls in the arena; walls are described by a set of 4 (x,y) corners (bottom-left, top-left, top-right, bottom-right)
-	walls = []
-
-	wall1 = dict()
-	wall1["x"] = 30
-	wall1["y"] = 0
-	wall1["width"] = 10
-	wall1["height"] = 80
-
-	wall2 = dict()
-	wall2["x"] = 70
-	wall2["y"] = 20
-	wall2["width"] = 10
-	wall2["height"] = 80
-
-	walls.append(wall1)
-	walls.append(wall2)
-	
 	# initial position and orientation of the robot
 	startX = robotX = 10
 	startY = robotY = 10
@@ -135,7 +145,7 @@ def evaluator_arenabot(candidates, args):
 
 
 
-"""def crossover_arenabot(random, candidates, args):
+def crossover_arenabot1(random, candidates, args):
 	crossover_rate = args['crossover_rate']
 
 	# Crossover and mutation mechanisms
@@ -151,9 +161,10 @@ def evaluator_arenabot(candidates, args):
 		for i in range(len(parent1)):
 			child.append(random.choice([parent1[i], parent2[i]]))
 		child += parent2[len(parent1):]
-	children.append(child)"""
+	children.append(child)
+	return children
 
-def crossover_arena_bot(random, candidates, args):
+def crossover_arenabot2(random, candidates, args):
 	crossover_rate = args['crossover_rate']
 	children = []
 	for c in range(len(candidates)):
@@ -206,6 +217,8 @@ def mutator_arenabot(random, candidates, args):
 				param  = int(param) % 360
 			
 			candidate[randomIndex] = f"{name} {param}"
+
+
 		# randomly add a new command
 		if (random.random() < mutation_rate):
 			name = random.choice(["move", "rotate"])
@@ -216,6 +229,9 @@ def mutator_arenabot(random, candidates, args):
 	return new_candidates
 
 
+def terminator_arenabot(population, num_generations, num_evaluations, args):
+	pass
+
 
 
 ################# MAIN
@@ -225,7 +241,7 @@ def main() :
 
 	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
 	ev_algo.selector = inspyred.ec.selectors.tournament_selection
-	ev_algo.variator = [crossover_arena_bot, mutator_arenabot]
+	ev_algo.variator = [crossover_arenabot2, mutator_arenabot]
 	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
 	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
 	ev_algo.observer = inspyred.ec.observers.best_observer
@@ -233,8 +249,8 @@ def main() :
 	final_pop = ev_algo.evolve(
 		generator=generator_arenabot,
 		evaluator=evaluator_arenabot,
-		pop_size=100,
-		num_selected=200,
+		pop_size=50,
+		num_selected=100,
 		maximize=False,
 		max_evaluations=10000,
 		mutation_rate=0.1,
@@ -249,4 +265,8 @@ def main() :
 
 if __name__ == "__main__" :
 	sys.exit( main() )
+
+
+def test_plan():
+
 
