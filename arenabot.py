@@ -216,13 +216,14 @@ def main() :
 		pop_size=50,
 		num_selected=100,
 		maximize=False,
-		max_evaluations=2000,
+		max_evaluations=10000,
 		mutation_rate=0.2,
 		crossover_rate=0.8
 	)
 
 	best = final_pop[0]
-	print("Best fitness {}".format(best))
+	print("Best fitness {}".format(best.fitness))
+	fitnessRobot(best.candidate, True)
 	
 	return 0
 
