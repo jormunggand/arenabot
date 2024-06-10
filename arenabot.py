@@ -3,6 +3,7 @@
 
 import sys
 import random
+import time
 import numpy as np
 import inspyred
 
@@ -110,7 +111,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 		
 		# plot a series of lines describing the movement of the robot in the arena
 		for i in range(1, len(positions)) :
-			ax.plot( [ positions[i-1][0], positions[i][0] ], [ positions[i-1][1], positions[i][1] ], 'r-', label="Robot path" )
+			ax.plot( [ positions[i-1][0], positions[i][0] ], [ positions[i-1][1], positions[i][1] ], 'r-')
 		
 		ax.set_title("Movements of the robot inside the arena")
 		ax.legend(loc='best')
@@ -134,7 +135,7 @@ def evaluator_arenabot(candidates, args):
 
 
 
-def crossover_arenabot(random, candidates, args):
+"""def crossover_arenabot(random, candidates, args):
 	crossover_rate = args['crossover_rate']
 
 	# Crossover and mutation mechanisms
@@ -150,8 +151,27 @@ def crossover_arenabot(random, candidates, args):
 		for i in range(len(parent1)):
 			child.append(random.choice([parent1[i], parent2[i]]))
 		child += parent2[len(parent1):]
-	children.append(child)
+	children.append(child)"""
 
+def crossover_arena_bot(random, candidates, args):
+	crossover_rate = args['crossover_rate']
+	children = []
+	for c in range(len(candidates)):
+		parent1, parent2 = random.choices(candidates, k=2)
+		if random.random() < crossover_rate:
+			randIndex1 = random.randint(0, len(parent1)-1)
+			randIndex2 = random.randint(0, len(parent2)-1)
+			child1 = parent1[0:randIndex1] + parent2[randIndex2:]
+			child2 = parent2[0:randIndex2] + parent1[randIndex1:]
+		else:
+			child1 = parent1.copy()
+			child2 = parent2.copy()
+		children.append(child1)
+		children.append(child2)
+	
+	children.sort(key=fitnessRobot)
+	return children[:len(candidates)]
+		
 
 
 boundMax = {
@@ -201,11 +221,11 @@ def mutator_arenabot(random, candidates, args):
 ################# MAIN
 def main() :
 	random_gen = random.Random()
-	random_gen.seed(42)
+	random_gen.seed(time.time())
 
 	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
 	ev_algo.selector = inspyred.ec.selectors.tournament_selection
-	ev_algo.variator = [mutator_arenabot]
+	ev_algo.variator = [crossover_arena_bot, mutator_arenabot]
 	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
 	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
 	ev_algo.observer = inspyred.ec.observers.best_observer
@@ -216,9 +236,9 @@ def main() :
 		pop_size=50,
 		num_selected=100,
 		maximize=False,
-		max_evaluations=10000,
-		mutation_rate=0.2,
-		crossover_rate=0.8
+		max_evaluations=5000,
+		mutation_rate=0.1,
+		crossover_rate=0.9
 	)
 
 	best = final_pop[0]
