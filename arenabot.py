@@ -47,7 +47,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 	for command in listOfCommands:
 		commandType, n = command.split(' ')
 		if commandType == "rotate":
-			angle += n
+			angle += n * np.pi / 180
 		elif commandType == "move":
 			robotX += int(np.sin(angle))
 			robotY += int(np.cos(angle))
