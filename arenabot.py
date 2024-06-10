@@ -233,10 +233,10 @@ def main() :
 	final_pop = ev_algo.evolve(
 		generator=generator_arenabot,
 		evaluator=evaluator_arenabot,
-		pop_size=50,
-		num_selected=100,
+		pop_size=100,
+		num_selected=200,
 		maximize=False,
-		max_evaluations=5000,
+		max_evaluations=10000,
 		mutation_rate=0.1,
 		crossover_rate=0.9
 	)
