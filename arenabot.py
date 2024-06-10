@@ -79,7 +79,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 			collision = False
 			for wall in walls:
 				# collision with wall or arena boundaries
-				if lineRectCollision(wall, x1, y1, x2, y2) or x2 < 0 or x2 > arenaWidth or y2 < 0 or y2 > arenaLength: 
+				if lineRectCollision(wall, x1, y1, x2, y2) or x2 < 0 or x2 >= arenaWidth or y2 < 0 or y2 >= arenaLength: 
 					# print(f"Collision with wall {wall}")
 					collision = True
 					break
