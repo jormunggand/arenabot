@@ -4,6 +4,26 @@
 import sys
 import numpy as np
 
+def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bool:
+	# check if the line defined by points (x1,y1) and (x2,y2) intersects with the rectangle defined by the wall
+	# bottom-left corner of the wall
+	xMin = wall["x"]
+	yMin = wall["y"]
+	# top-right corner of the wall
+	xMax = wall["x"] + wall["width"]
+	yMax = wall["y"] + wall["height"]
+	
+	# check if the line intersects with the rectangle
+	# https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+	def ccw(A,B,C):
+		return (C[1]-A[1])*(B[0]-A[0]) > (B[1]-A[1])*(C[0]-A[0])
+	
+	def intersect(A,B,C,D):
+		return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+	
+	return intersect( (x1,y1), (x2,y2), (xMin,yMin), (xMax,yMin) ) or intersect( (x1,y1), (x2,y2), (xMax,yMin), (xMax,yMax) ) or intersect( (x1,y1), (x2,y2), (xMax,yMax), (xMin,yMax) ) or intersect( (x1,y1), (x2,y2), (xMin,yMax), (xMin,yMin) )
+
+
 '''This function accepts in input a list of strings, and tries to parse them to update the position of a robot. Then returns distance from objective.'''
 def fitnessRobot(listOfCommands, visualize=False) :
 
@@ -32,7 +52,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 	# initial position and orientation of the robot
 	startX = robotX = 10
 	startY = robotY = 10
-	startDegrees = 90 # 90°
+	startDegrees = 0 # 90°
 	
 	# position of the objective
 	objectiveX = 90
@@ -43,17 +63,29 @@ def fitnessRobot(listOfCommands, visualize=False) :
 	positions.append( [robotX, robotY] )
 	
 	# TODO move robot, check that the robot stays inside the arena
-	angle = 0
+	angle = startDegrees * np.pi / 180
 	for command in listOfCommands:
 		commandType, n = command.split(' ')
 		if commandType == "rotate":
-			angle += n * np.pi / 180
+			angle += int(n) * np.pi / 180
 		elif commandType == "move":
-			robotX += int(np.sin(angle))
-			robotY += int(np.cos(angle))
-			positions.append( [robotX, robotY] )
+			x1 = robotX
+			y1 = robotY
+			x2 = robotX + int(int(n) * np.sin(angle))
+			y2 = robotY + int(int(n) * np.cos(angle))
+			collision = False
+			for wall in walls:
+				# collision with wall or arena boundaries
+				if lineRectCollision(wall, x1, y1, x2, y2) or x2 < 0 or x2 > arenaWidth or y2 < 0 or y2 > arenaLength: 
+					# print(f"Collision with wall {wall}")
+					collision = True
+					break
+			if not collision:
+				robotX = x2
+				robotY = y2
+				positions.append( [robotX, robotY] )
 
-
+	# print(f"positions : {positions}")
 	# TODO measure distance from objective
 	distanceFromObjective = np.sqrt((objectiveX - robotX)**2 + (objectiveY - robotY)**2)
 	
