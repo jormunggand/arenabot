@@ -229,8 +229,68 @@ def mutator_arenabot(random, candidates, args):
 	return new_candidates
 
 
+# stops if either maximum number of evaluations has been reached or one individual has reached
+# a fitness of zero
 def terminator_arenabot(population, num_generations, num_evaluations, args):
-	pass
+	if inspyred.ec.terminators.evaluation_termination(population, num_generations, num_evaluations, args):
+		return True
+	if 0 in [ind.fitness for ind in population]:
+		return True
+
+	return False
+
+
+def test_plan():
+	random_gen = random.Random()
+	random_gen.seed(time.time())
+
+	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
+	ev_algo.selector = inspyred.ec.selectors.tournament_selection
+	ev_algo.variator = [crossover_arenabot2, mutator_arenabot]
+	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
+	ev_algo.terminator = terminator_arenabot
+	#ev_algo.observer = inspyred.ec.observers.best_observer
+
+	
+	pop_size_tab = range(50, 300, 50)
+	crossover_rate_tab = np.linspace(0.5, 1, 20)
+	mutation_rate_tab = np.linspace(0, 0.4, 20)
+
+	N = 3
+
+	best_pop_size = pop_size_tab[0]
+	best_cross_rate = crossover_rate_tab[0]
+	best_mutation_rate = mutation_rate_tab[0]
+
+	best_average = 1000
+
+	
+	for pop_size in pop_size_tab:
+		for crossover_rate in crossover_rate_tab:
+			for mutation_rate in mutation_rate_tab:
+				best_fitness_average = 0
+				for i in range(N):
+					final_pop = ev_algo.evolve(
+							generator=generator_arenabot,
+							evaluator=evaluator_arenabot,
+							pop_size=pop_size,
+							num_selected=pop_size*2,
+							maximize=False,
+							max_evaluations=3000,
+							mutation_rate=mutation_rate,
+							crossover_rate=crossover_rate
+					)
+					best_fitness_average += final_pop[0].fitness
+				best_fitness_average /= N
+				if best_fitness_average < best_average:
+					best_average = best_fitness_average
+					best_pop_size = pop_size
+					best_cross_rate = crossover_rate
+					best_mutation_rate = mutation_rate
+				print(f"Current best: {best_fitness_average} ({pop_size} {crossover_rate} {mutation_rate})")
+
+
+
 
 
 
@@ -243,7 +303,7 @@ def main() :
 	ev_algo.selector = inspyred.ec.selectors.tournament_selection
 	ev_algo.variator = [crossover_arenabot2, mutator_arenabot]
 	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
-	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
+	ev_algo.terminator = terminator_arenabot
 	ev_algo.observer = inspyred.ec.observers.best_observer
 	
 	final_pop = ev_algo.evolve(
@@ -264,9 +324,6 @@ def main() :
 	return 0
 
 if __name__ == "__main__" :
-	sys.exit( main() )
-
-
-def test_plan():
+	sys.exit(test_plan())
 
 
