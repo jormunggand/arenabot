@@ -48,7 +48,6 @@ def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bo
 	yMax = wall["y"] + wall["height"]
 	
 	# check if the line intersects with the rectangle
-	# https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
 	def ccw(A,B,C):
 		return (C[1]-A[1])*(B[0]-A[0]) > (B[1]-A[1])*(C[0]-A[0])
 	
@@ -57,6 +56,40 @@ def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bo
 	
 	return intersect( (x1,y1), (x2,y2), (xMin,yMin), (xMax,yMin) ) or intersect( (x1,y1), (x2,y2), (xMax,yMin), (xMax,yMax) ) or intersect( (x1,y1), (x2,y2), (xMax,yMax), (xMin,yMax) ) or intersect( (x1,y1), (x2,y2), (xMin,yMax), (xMin,yMin) )
 
+
+
+# the Arena is a 100 x 100 pixel space
+arenaLength = 100
+arenaWidth = 100
+	
+# let's also put a couple of walls in the arena; walls are described by a set of 4 (x,y) corners (bottom-left, top-left, top-right, bottom-right)
+walls = []
+
+wall1 = dict()
+wall1["x"] = 30
+wall1["y"] = 0
+wall1["width"] = 10
+wall1["height"] = 80
+
+wall2 = dict()
+wall2["x"] = 70
+wall2["y"] = 20
+wall2["width"] = 10
+wall2["height"] = 80
+
+walls.append(wall1)
+walls.append(wall2)
+
+
+# returns the sum of all the N in "move N" of commandList
+# sum_of_distances(["move 10", "move 15", "rotate 120"]) returns 25
+def sum_of_distances(commandList):
+	total=0
+	for command in commandList:
+		name, n = command.split(' ')
+		if name == "move":
+			total += int(n)
+	return total
 
 '''This function accepts in input a list of strings, and tries to parse them to update the position of a robot. Then returns distance from objective.'''
 def robotFitness(listOfCommands, visualize=False) :	
@@ -142,7 +175,27 @@ def evaluator_multiobj_arenabot(candidates, args):
 		list_of_fitness_values.append(inspyred.ec.emo.Pareto( [f1, f2] )) # in this case, for multi-objective optimization we need to create a Pareto fitness object with a list of values
 	return list_of_fitness_values
 
-def crossover_arena_bot(random, candidates, args):
+
+def crossover_arenabot1(random, candidates, args):
+	crossover_rate = args['crossover_rate']
+
+	# Crossover and mutation mechanisms
+	children = []
+	for c in range(len(candidates)):
+		# Do the crossover by selecting two different candidates
+		parent1, parent2 = random.choices(candidates, k=2)
+		# parent1 will be the one with minimum length
+		if len(parent1) > len(parent2):
+			parent1, parent2 = parent2,parent1
+
+		child = []
+		for i in range(len(parent1)):
+			child.append(random.choice([parent1[i], parent2[i]]))
+		child += parent2[len(parent1):]
+	children.append(child)
+	return children
+
+def crossover_arenabot2(random, candidates, args):
 	crossover_rate = args['crossover_rate']
 	children = []
 	for c in range(len(candidates)):
@@ -194,6 +247,8 @@ def mutator_arenabot(random, candidates, args):
 				param %= 360
 			param = int(param)
 			candidate[randomIndex] = f"{name} {param}"
+
+
 		# randomly add a new command
 		if (random.random() < mutation_rate):
 			name = random.choice(["move", "rotate"])
@@ -203,6 +258,72 @@ def mutator_arenabot(random, candidates, args):
 			
 	return new_candidates
 
+
+# stops if either maximum number of evaluations has been reached or one individual has reached
+# a fitness of zero
+def terminator_arenabot(population, num_generations, num_evaluations, args):
+	if inspyred.ec.terminators.evaluation_termination(population, num_generations, num_evaluations, args):
+		return True
+	if 0 in [ind.fitness for ind in population]:
+		return True
+
+	return False
+
+
+def test_plan():
+	random_gen = random.Random()
+	random_gen.seed(time.time())
+
+	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
+	ev_algo.selector = inspyred.ec.selectors.tournament_selection
+	ev_algo.variator = [crossover_arenabot2, mutator_arenabot]
+	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
+	ev_algo.terminator = terminator_arenabot
+	#ev_algo.observer = inspyred.ec.observers.best_observer
+
+	
+	pop_size_tab = range(50, 300, 50)
+	crossover_rate_tab = np.linspace(0.5, 1, 20)
+	mutation_rate_tab = np.linspace(0, 0.4, 20)
+
+	N = 3
+
+	best_pop_size = pop_size_tab[0]
+	best_cross_rate = crossover_rate_tab[0]
+	best_mutation_rate = mutation_rate_tab[0]
+
+	best_average = 1000
+
+	
+	for pop_size in pop_size_tab:
+		for crossover_rate in crossover_rate_tab:
+			for mutation_rate in mutation_rate_tab:
+				best_fitness_average = 0
+				for i in range(N):
+					final_pop = ev_algo.evolve(
+							generator=generator_arenabot,
+							evaluator=evaluator_arenabot,
+							pop_size=pop_size,
+							num_selected=pop_size*2,
+							maximize=False,
+							max_evaluations=3000,
+							mutation_rate=mutation_rate,
+							crossover_rate=crossover_rate
+					)
+					best_fitness_average += final_pop[0].fitness
+				best_fitness_average /= N
+				if best_fitness_average < best_average:
+					best_average = best_fitness_average
+					best_pop_size = pop_size
+					best_cross_rate = crossover_rate
+					best_mutation_rate = mutation_rate
+				print(f"Current best: {best_fitness_average} ({pop_size} {crossover_rate} {mutation_rate})")
+
+
+
+
+
+
 ################# MAIN
 def main() :
 	random_gen = random.Random()
@@ -210,9 +331,9 @@ def main() :
 
 	ev_algo = inspyred.ec.emo.NSGA2(random_gen)
 	ev_algo.selector = inspyred.ec.selectors.tournament_selection
-	ev_algo.variator = [crossover_arena_bot, mutator_arenabot]
-	ev_algo.replacer = inspyred.ec.replacers.comma_replacement
-	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
+	ev_algo.variator = [crossover_arenabot2, mutator_arenabot]
+	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
+	ev_algo.terminator = terminator_arenabot
 	ev_algo.observer = inspyred.ec.observers.best_observer
 	
 	final_pop = ev_algo.evolve(
@@ -233,5 +354,6 @@ def main() :
 	return 0
 
 if __name__ == "__main__" :
-	sys.exit( main() )
+	sys.exit(test_plan())
+
 
