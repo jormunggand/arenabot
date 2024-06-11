@@ -3,9 +3,40 @@
 
 import sys
 import random
-import time
+from time import time
 import numpy as np
 import inspyred
+
+# the Arena is a 100 x 100 pixel space
+arenaLength = 100
+arenaWidth = 100
+
+# let's also put a couple of walls in the arena; walls are described by a set of 4 (x,y) corners (bottom-left, top-left, top-right, bottom-right)
+walls = []
+
+wall1 = dict()
+wall1["x"] = 30
+wall1["y"] = 0
+wall1["width"] = 10
+wall1["height"] = 80
+
+wall2 = dict()
+wall2["x"] = 70
+wall2["y"] = 20
+wall2["width"] = 10
+wall2["height"] = 80
+
+walls.append(wall1)
+walls.append(wall2)
+
+startX = 10
+startY = 10
+startDegrees = 0 # 90°
+
+	
+# position of the objective
+objectiveX = 90
+objectiveY = 90
 
 def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bool:
 	# check if the line defined by points (x1,y1) and (x2,y2) intersects with the rectangle defined by the wall
@@ -28,39 +59,11 @@ def lineRectCollision(wall : dict, x1 : int, y1 : int, x2 : int, y2 : int) -> bo
 
 
 '''This function accepts in input a list of strings, and tries to parse them to update the position of a robot. Then returns distance from objective.'''
-def fitnessRobot(listOfCommands, visualize=False) :
-
-	# the Arena is a 100 x 100 pixel space
-	arenaLength = 100
-	arenaWidth = 100
-	
-	# let's also put a couple of walls in the arena; walls are described by a set of 4 (x,y) corners (bottom-left, top-left, top-right, bottom-right)
-	walls = []
-
-	wall1 = dict()
-	wall1["x"] = 30
-	wall1["y"] = 0
-	wall1["width"] = 10
-	wall1["height"] = 80
-
-	wall2 = dict()
-	wall2["x"] = 70
-	wall2["y"] = 20
-	wall2["width"] = 10
-	wall2["height"] = 80
-
-	walls.append(wall1)
-	walls.append(wall2)
-	
+def robotFitness(listOfCommands, visualize=False) :	
 	# initial position and orientation of the robot
-	startX = robotX = 10
-	startY = robotY = 10
-	startDegrees = 0 # 90°
-	
-	# position of the objective
-	objectiveX = 90
-	objectiveY = 90
-	
+	robotX = startX
+	robotY = startY
+
 	# this is a list of points that the robot will visit; used later to visualize its path
 	positions = []
 	positions.append( [robotX, robotY] )
@@ -92,6 +95,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 	# print(f"positions : {positions}")
 	# TODO measure distance from objective
 	distanceFromObjective = np.sqrt((objectiveX - robotX)**2 + (objectiveY - robotY)**2)
+	nbSteps = len(listOfCommands)
 	
 	# this is optional, argument "visualize" has to be explicitly set to "True" when function is called
 	if visualize :
@@ -117,9 +121,7 @@ def fitnessRobot(listOfCommands, visualize=False) :
 		ax.legend(loc='best')
 		plt.show()
 
-	return distanceFromObjective
-
-
+	return distanceFromObjective, nbSteps
 
 def generator_arenabot(random, args):
 	commandList = []
@@ -131,27 +133,14 @@ def generator_arenabot(random, args):
 	return commandList
 
 def evaluator_arenabot(candidates, args):
-	return [fitnessRobot(c, False) for c in candidates]
+	return [robotFitness(c, False) for c in candidates]
 
-
-
-"""def crossover_arenabot(random, candidates, args):
-	crossover_rate = args['crossover_rate']
-
-	# Crossover and mutation mechanisms
-	children = []
-	for c in range(len(candidates)):
-		# Do the crossover by selecting two different candidates
-		parent1, parent2 = random.choices(candidates, k=2)
-		# parent1 will be the one with minimum length
-		if len(parent1) > len(parent2):
-			parent1, parent2 = parent2,parent1
-
-		child = []
-		for i in range(len(parent1)):
-			child.append(random.choice([parent1[i], parent2[i]]))
-		child += parent2[len(parent1):]
-	children.append(child)"""
+def evaluator_multiobj_arenabot(candidates, args):
+	list_of_fitness_values = []
+	for candidate in candidates:
+		f1, f2 = robotFitness(candidate, False)
+		list_of_fitness_values.append(inspyred.ec.emo.Pareto( [f1, f2] )) # in this case, for multi-objective optimization we need to create a Pareto fitness object with a list of values
+	return list_of_fitness_values
 
 def crossover_arena_bot(random, candidates, args):
 	crossover_rate = args['crossover_rate']
@@ -161,18 +150,17 @@ def crossover_arena_bot(random, candidates, args):
 		if random.random() < crossover_rate:
 			randIndex1 = random.randint(0, len(parent1)-1)
 			randIndex2 = random.randint(0, len(parent2)-1)
-			child1 = parent1[0:randIndex1] + parent2[randIndex2:]
-			child2 = parent2[0:randIndex2] + parent1[randIndex1:]
+			child1 = parent1[:randIndex1] + parent2[randIndex2:]
+			child2 = parent2[:randIndex2] + parent1[randIndex1:]
 		else:
 			child1 = parent1.copy()
 			child2 = parent2.copy()
 		children.append(child1)
 		children.append(child2)
 	
-	children.sort(key=fitnessRobot)
+	children.sort(key=robotFitness)
 	return children[:len(candidates)]
 		
-
 
 boundMax = {
 	"move": 100,
@@ -202,9 +190,9 @@ def mutator_arenabot(random, candidates, args):
 				param *= random.gauss(1, 0.1)
 				param = int(max(min(param, 100), 0))
 			else:
-				param *= random.gauss(1, 0.8) 
-				param  = int(param) % 360
-			
+				param *= random.gauss(1, 0.6) 
+				param %= 360
+			param = int(param)
 			candidate[randomIndex] = f"{name} {param}"
 		# randomly add a new command
 		if (random.random() < mutation_rate):
@@ -215,35 +203,32 @@ def mutator_arenabot(random, candidates, args):
 			
 	return new_candidates
 
-
-
-
 ################# MAIN
 def main() :
 	random_gen = random.Random()
-	random_gen.seed(time.time())
+	random_gen.seed(time())
 
-	ev_algo = inspyred.ec.EvolutionaryComputation(random_gen)
+	ev_algo = inspyred.ec.emo.NSGA2(random_gen)
 	ev_algo.selector = inspyred.ec.selectors.tournament_selection
 	ev_algo.variator = [crossover_arena_bot, mutator_arenabot]
-	ev_algo.replacer = inspyred.ec.replacers.plus_replacement
+	ev_algo.replacer = inspyred.ec.replacers.comma_replacement
 	ev_algo.terminator = inspyred.ec.terminators.evaluation_termination
 	ev_algo.observer = inspyred.ec.observers.best_observer
 	
 	final_pop = ev_algo.evolve(
 		generator=generator_arenabot,
-		evaluator=evaluator_arenabot,
-		pop_size=100,
-		num_selected=200,
+		evaluator=evaluator_multiobj_arenabot,
+		pop_size=200,
+		num_selected=400,
 		maximize=False,
-		max_evaluations=10000,
-		mutation_rate=0.1,
+		max_evaluations=50000,
+		mutation_rate=0.2,
 		crossover_rate=0.9
 	)
 
 	best = final_pop[0]
 	print("Best fitness {}".format(best.fitness))
-	fitnessRobot(best.candidate, True)
+	robotFitness(best.candidate, True)
 	
 	return 0
 
