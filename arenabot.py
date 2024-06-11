@@ -252,9 +252,9 @@ def test_plan():
 	#ev_algo.observer = inspyred.ec.observers.best_observer
 
 	
-	pop_size_tab = range(50, 300, 50)
-	crossover_rate_tab = np.linspace(0.5, 1, 20)
-	mutation_rate_tab = np.linspace(0, 0.4, 20)
+	pop_size_tab = range(69, 73, 1)
+	crossover_rate_tab = np.linspace(0.8, 1, 15)
+	mutation_rate_tab = np.linspace(0, 0.2, 15)
 
 	N = 3
 
@@ -265,30 +265,33 @@ def test_plan():
 	best_average = 1000
 
 	
+	i = 0
 	for pop_size in pop_size_tab:
 		for crossover_rate in crossover_rate_tab:
 			for mutation_rate in mutation_rate_tab:
-				best_fitness_average = 0
-				for i in range(N):
-					final_pop = ev_algo.evolve(
-							generator=generator_arenabot,
-							evaluator=evaluator_arenabot,
-							pop_size=pop_size,
-							num_selected=pop_size*2,
-							maximize=False,
-							max_evaluations=3000,
-							mutation_rate=mutation_rate,
-							crossover_rate=crossover_rate
-					)
-					best_fitness_average += final_pop[0].fitness
-				best_fitness_average /= N
-				if best_fitness_average < best_average:
-					best_average = best_fitness_average
-					best_pop_size = pop_size
-					best_cross_rate = crossover_rate
-					best_mutation_rate = mutation_rate
-				print(f"Current best: {best_fitness_average} ({pop_size} {crossover_rate} {mutation_rate})")
-
+				if crossover_rate + mutation_rate < 1:
+					cur_average = 0
+					for i in range(N):
+						final_pop = ev_algo.evolve(
+								generator=generator_arenabot,
+								evaluator=evaluator_arenabot,
+								pop_size=pop_size,
+								num_selected=pop_size*2,
+								maximize=False,
+								max_evaluations=5000,
+								crossover_rate=crossover_rate,
+								mutation_rate=mutation_rate
+						)
+						cur_average += final_pop[0].fitness
+					cur_average /= N
+					if cur_average < best_average:
+						best_average = cur_average
+						best_pop_size = pop_size
+						best_cross_rate = crossover_rate
+						best_mutation_rate = mutation_rate
+					i += 1
+					print(f"Current {i}: {cur_average} ({pop_size} {crossover_rate} {mutation_rate})")
+	print(f"Best: {best_average} ({best_pop_size} {best_cross_rate} {best_mutation_rate})")
 
 
 
@@ -309,8 +312,8 @@ def main() :
 	final_pop = ev_algo.evolve(
 		generator=generator_arenabot,
 		evaluator=evaluator_arenabot,
-		pop_size=50,
-		num_selected=100,
+		pop_size=70,
+		num_selected=2*70,
 		maximize=False,
 		max_evaluations=10000,
 		mutation_rate=0.1,
